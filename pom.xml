@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.richeninfo</groupId>
+    <groupId>org.shenjitang</groupId>
     <artifactId>MongoDBUtils</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
@@ -32,12 +32,12 @@
 
     <distributionManagement>
         <repository>
-            <id>thirdparty</id>
-            <url>http://222.66.163.38/nexus/content/repositories/thirdparty</url>
+            <id>ruiyun</id>
+            <url>http://120.55.99.231:8081/repository/shenjitang-repository/</url>
         </repository>
     </distributionManagement>
 
-    <build>
+<!--    <build>
         <plugins>
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
@@ -52,5 +52,5 @@
                 </executions>
             </plugin>
         </plugins>
-    </build>
+    </build>-->
 </project>
