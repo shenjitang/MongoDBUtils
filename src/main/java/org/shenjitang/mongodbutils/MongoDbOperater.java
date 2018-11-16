@@ -29,6 +29,7 @@ import java.util.regex.Pattern;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
@@ -410,8 +411,14 @@ public class MongoDbOperater {
             Limit limit = selectBody.getLimit();
             //Long limit = selectBody.getLimit().getRowCount();
             if (null != limit) {
-                queryInfo.skip = limit.getOffset();
-                queryInfo.limit = limit.getRowCount();
+                Expression offset = limit.getOffset();
+                Expression rowCount = limit.getRowCount();
+                if (offset != null && offset instanceof LongValue) {
+                    queryInfo.skip = ((LongValue)(offset)).getValue();
+                }
+                if (rowCount != null && rowCount instanceof LongValue) {
+                    queryInfo.limit = ((LongValue)(rowCount)).getValue();
+                }
             }
         } else if (statement instanceof Delete) {
             queryInfo.action = "delete";
@@ -423,7 +430,7 @@ public class MongoDbOperater {
             queryInfo.action = "update";
             Update update = (Update) statement;
             whereExpression = update.getWhere();
-            queryInfo.collName = update.getTable().getName();
+            queryInfo.collName = update.getTables().get(0).getName();
             List<Column> columnList = update.getColumns();
             List<Expression> expressionList = update.getExpressions();
             queryInfo.updateObj = new BasicDBObject();
@@ -657,11 +664,11 @@ public class MongoDbOperater {
 
 
     public static void main(String[] args) throws Exception {
-        MongoClient mongoClient = new MongoClient("172.20.10.74", 27017);
-        DB db = mongoClient.getDB("datacenter");
-        DBCollection coll = db.getCollection("T_INDEX_02527");
+        //MongoClient mongoClient = new MongoClient("172.20.10.74", 27017);
+        //DB db = mongoClient.getDB("datacenter");
+        //DBCollection coll = db.getCollection("T_INDEX_02527");
 //        List list = coll.distinct("PUBDATE", new BasicDBObject(new HashMap()));
-
+/*
         HashMap keys = new HashMap();
 
         keys.put("INDEXCODE", "INDEXCODE");
@@ -677,6 +684,32 @@ public class MongoDbOperater {
 
         DBObject obj = coll.group(new BasicDBObject(keys), cond, initial, reduce);
         System.out.println("obj:" + obj.toMap());
+*/
+        String sql = "select * from table1 where name='aaa' and age between 20 and 30 and haha = 'ss' limit 3,6";
+        //String sql = "select * from table1 where name='aaa' and age >= 20 and age <= 30";
+        MongoDbOperater ope = new MongoDbOperater();
+        //ope.setMongoClient(mongoClient);
+        QueryInfo info = ope.sql2QueryInfo("abc", sql);
+        System.out.println(info.debugStr());
+        
+
+        sql = "select * from table1 where name='aaa' and age>=18 and foot in (1,2,3) and abc in ('a1','a2','a3') order by age,name limit 123";
+        info = ope.sql2QueryInfo("abc", sql);
+        System.out.println(info.debugStr());
+        
+
+        sql = "select * from algoflow_instance_log where functionName='f1' and reuseResult=false and returnCode=0 and action='LEAVE' order by timestamp desc limit 100";
+        info = ope.sql2QueryInfo("abc", sql);
+        System.out.println(info.debugStr());
+
+        String updateSql = "update table1 set a=1, b='sdaf', c='2012-11-23 17:45:32' where name='aaa' and age>=18 and foot in (1,2,3) and abc in ('a1','a2','a3')";
+        QueryInfo uinfo = ope.sql2QueryInfo("abc", updateSql);
+        System.out.println(uinfo.debugStr());
+
+        //String json = "{\"a\":123,\"b\":345}";
+        //BasicBSONObject obj = (BasicBSONObject)JSON.parse(json, new DefaultDBCallback(coll));
+        //BasicDBObject dbObj = new BasicDBObject(obj);
+        //System.out.println(dbObj);
     }
 
 
