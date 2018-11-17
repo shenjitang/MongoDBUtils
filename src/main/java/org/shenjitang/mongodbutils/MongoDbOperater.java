@@ -7,7 +7,6 @@
 package org.shenjitang.mongodbutils;
 
 import com.mongodb.Block;
-import com.mongodb.MongoDriverInformation;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -32,7 +31,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.util.*;
 import java.util.regex.Pattern;
-import net.sf.json.JSONObject;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
@@ -61,6 +59,7 @@ import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 
 /**
@@ -106,13 +105,19 @@ public class MongoDbOperater {
     public void update(String dbName, String colName, Map findMap, Map recordMap) throws Exception {
         MongoDatabase db = mongoClient.getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
-        coll.updateMany(new Document(findMap), new Document("$set", new Document(recordMap)));
+        coll.updateMany(map2Bson(findMap), new Document("$set", new Document(recordMap)));
     }
 
-    public void update(String dbName, String colName, Map findMap, Object obj) throws Exception {
+    public void update(String dbName, String colName, Bson findMap, Map recordMap) throws Exception {
         MongoDatabase db = mongoClient.getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
-        coll.updateMany(new Document(findMap), new Document("$set", new Document(BeanUtilEx.transBean2Map(obj))));
+        coll.updateMany(findMap, new Document("$set", new Document(recordMap)));
+    }
+
+    public void update(String dbName, String colName, Bson findMap, Object obj) throws Exception {
+        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName);
+        coll.updateMany(findMap, new Document("$set", new Document(BeanUtilEx.transBean2Map(obj))));
     }
 
     public void update(String dbName, String colName, String findJson, String json) {
@@ -251,6 +256,12 @@ public class MongoDbOperater {
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
         return (T)coll.find( query, clazz).first();
+    }
+
+    public <T> T findOneObj(String dbname, String collName, Bson queryMap, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
+        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoCollection coll = db.getCollection(collName);
+        return (T)coll.find(queryMap, clazz).first();
     }
 
     public Map findOne(String dbname, String collName, Map queryMap) throws InstantiationException, IllegalAccessException, InvocationTargetException {
@@ -543,9 +554,12 @@ public class MongoDbOperater {
         print(list);
         Document map = operater.findOne(dbname, "select * from collection1 where name='秦小'");
         print(map);
+        System.out.println("=");
         print(operater.get(dbname, collname, "5b87779262e5f57e8f08dd35"));
-        String sql = "select * from collection1 where name='秦小' and age between 10 and 20 limit 3";
+        //String sql = "select * from collection1 where name='秦小' and age between 15 and 17 limit 3";
+        String sql = "select * from collection1 where age between 15 and 17 and name='张三' limit 2";
         list = operater.find(dbname, sql);
+        System.out.println("===");
         print(list);
     }
     
@@ -558,6 +572,18 @@ public class MongoDbOperater {
         for (Document rec : list) {
             print(rec);
         }
+    }
+
+    private Bson map2Bson(Map findMap) {
+        Bson result = null;
+        for (Object key : findMap.keySet()) {
+            if (result == null) {
+                result = Filters.eq(key.toString(), findMap.get(key));
+            } else {
+                result = Filters.and(result, Filters.eq(key.toString(), findMap.get(key)));
+            }
+        }
+        return result;
     }
 
 

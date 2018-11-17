@@ -14,6 +14,7 @@ import net.sf.json.JSONSerializer;
 import org.bson.BasicBSONCallback;
 import org.bson.BsonDocument;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 
 /**
  *
@@ -23,8 +24,8 @@ public class QueryInfo {
     public String dbName;
     public String collName;
     public String action;
-    public BsonDocument keys;
-    public BsonDocument query;
+    public Bson keys;
+    public Bson query;
     public Long limit;
     public Long skip;
     public BsonDocument order;

@@ -7,15 +7,11 @@
 package org.shenjitang.mongodbutils;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import java.lang.reflect.InvocationTargetException;
+import com.mongodb.client.model.Filters;
 import java.lang.reflect.Method;
 import java.util.Date;
-import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
-import net.sf.jsqlparser.expression.LongValue;
-import net.sf.jsqlparser.expression.StringValue;
-import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.relational.Between;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
@@ -24,7 +20,6 @@ import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.expression.operators.relational.ItemsList;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
-import net.sf.jsqlparser.schema.Column;
 import org.bson.BsonBoolean;
 import org.bson.BsonDateTime;
 import org.bson.BsonDocument;
@@ -33,19 +28,20 @@ import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.bson.conversions.Bson;
 /**
  *
  * @author xiaolie
  */
 public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
-    private BsonDocument query = new BsonDocument();
+    private Bson query = null;
     private BsonDocument currentObj;
 //    private String currentColumn;
 
     public Sql2MongoExpressVisitor() {
     }
 
-    public BsonDocument getQuery() {
+    public Bson getQuery() {
         return query;
     }
 
@@ -53,53 +49,11 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         this.query = query;
     }
     
-    private void toMongoQuery(Expression left, Expression right) {
-        if (right instanceof Column) {
-            String rightV = ((Column) right).getColumnName();
-            if (rightV.equalsIgnoreCase("true")) {
-                query.put(left.toString(), BsonBoolean.TRUE);
-            } else if (rightV.equalsIgnoreCase("false")) {
-                query.put(left.toString(), BsonBoolean.FALSE);
-            } else {
-                throw new RuntimeException("不能识别的表达式：" + right.toString());
-            }
+    private void addQuery(Bson expreBson) {
+        if (query == null) {
+            query = expreBson;
         } else {
-            try {
-                Method getValueMethod = right.getClass().getMethod("getValue");
-                if (getValueMethod != null) {
-                    Object value = getValueMethod.invoke(right);
-                    query.put(left.toString(), toBsonValue(value));
-                }
-            } catch (Exception e) {
-                throw new RuntimeException("表达式值没有value", e);
-            }
-        }
-    }
-
-    private void toMongoQuery(Expression left, Object right, String opt) {
-        try {
-            Method getValueMethod = right.getClass().getMethod("getValue");
-            if (getValueMethod != null) {
-                Object value = getValueMethod.invoke(right);
-                String field = left.toString();
-                DBObject optObj = new BasicDBObject(opt, value);
-                query.put(field, toBsonValue(optObj));
-            } else {
-                String field = left.toString();
-                DBObject optObj = new BasicDBObject(opt, right);
-                query.put(field, toBsonValue(optObj));
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            /*
-            String field = left.toString();
-            if (query.containsKey(field)) {
-                ((DBObject)query.get(field)).put(opt, right);
-            } else {
-                DBObject optObj = new BasicDBObject(opt, right);
-                query.put(field, toBsonValue(optObj));
-            } */
-            //throw new RuntimeException("表达式值没有value", e);
+            query = Filters.and(query, expreBson);
         }
     }
 
@@ -107,7 +61,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void visit(EqualsTo expr) {  
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        toMongoQuery(left, right);
+        addQuery(Filters.eq(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(expr);
     }
     
@@ -116,7 +70,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void visit(GreaterThan expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        toMongoQuery(left, right, "$gt");
+        addQuery(Filters.gt(left.toString(), toBsonValue(right)));        
         visitBinaryExpression(expr);
     }
 
@@ -125,33 +79,33 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         Expression left = expr.getLeftExpression();
         Expression start = expr.getBetweenExpressionStart();
         Expression end = expr.getBetweenExpressionEnd();
-        toMongoQuery(left, start, "$gte");
-        toMongoQuery(left, start, "$lte");
+        addQuery(Filters.gte(left.toString(), toBsonValue(start)));
+        addQuery(Filters.lte(left.toString(), toBsonValue(end)));
     }
     
     @Override
     public void visit(GreaterThanEquals greaterThanEquals) {
         Expression left = greaterThanEquals.getLeftExpression();
         Expression right = greaterThanEquals.getRightExpression();
-        toMongoQuery(left, right, "$gte");
+        addQuery(Filters.gte(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(greaterThanEquals);
-	}
+    }
 
     @Override
     public void visit(MinorThan expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        toMongoQuery(left, right, "$lt");
+        addQuery(Filters.lt(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(expr);
-	}
+    }
     
     @Override
     public void visit(MinorThanEquals expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        toMongoQuery(left, right, "$lte");
-		visitBinaryExpression(expr);
-	}
+        addQuery(Filters.lte(left.toString(), toBsonValue(right))); 
+        visitBinaryExpression(expr);
+    }
     
     @Override
     public void visit(InExpression expr) {
@@ -161,10 +115,8 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         String str = listStr.substring(listStr.indexOf("(") + 1, listStr.lastIndexOf(")"));
         String[] items = str.split(",");
         trimQuotation(items);
-        toMongoQuery(left, items, "$in");
-//		expr.getLeftExpression().accept(this);
-//		expr.getRightItemsList().accept(this);
-	}
+        addQuery(Filters.in(left.toString(), items));
+    }
     
     private void trimQuotation(String[] items) {
         for (int i = 0; i < items.length; i++) {
@@ -176,8 +128,18 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         }
     }
     
+    
     private BsonValue toBsonValue(Object value) {
         BsonValue bv = null;
+        if (value instanceof Expression) {
+            try {
+                Method getValueMethod = value.getClass().getMethod("getValue");
+                value = getValueMethod.invoke(value);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
         if (value instanceof Integer) {
             bv = new BsonInt32((Integer) value);
         } else if (value instanceof Long) {
