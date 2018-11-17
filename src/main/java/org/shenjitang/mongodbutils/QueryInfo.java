@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import net.sf.json.JSONSerializer;
 import org.bson.BasicBSONCallback;
+import org.bson.BsonDocument;
+import org.bson.Document;
 
 /**
  *
@@ -21,20 +23,20 @@ public class QueryInfo {
     public String dbName;
     public String collName;
     public String action;
-    public DBObject keys;
-    public DBObject query;
+    public BsonDocument keys;
+    public BsonDocument query;
     public Long limit;
     public Long skip;
-    public DBObject order;
-    public DBObject updateObj;
+    public BsonDocument order;
+    public BsonDocument updateObj;
     
     public void setQuery(String json) {
-        query = (DBObject)JSON.parse(json, new BasicBSONCallback());
+        query = BsonDocument.parse(json);
         System.out.println(query);
     }
     
     public void setSort(String json) {
-        order = (DBObject)JSON.parse(json, new BasicBSONCallback());
+        order = BsonDocument.parse(json);
     }
     
     public String debugStr() {

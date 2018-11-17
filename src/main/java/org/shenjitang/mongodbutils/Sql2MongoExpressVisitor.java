@@ -9,6 +9,7 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Date;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
@@ -24,23 +25,31 @@ import net.sf.jsqlparser.expression.operators.relational.ItemsList;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.schema.Column;
+import org.bson.BsonBoolean;
+import org.bson.BsonDateTime;
+import org.bson.BsonDocument;
+import org.bson.BsonDouble;
+import org.bson.BsonInt32;
+import org.bson.BsonInt64;
+import org.bson.BsonString;
+import org.bson.BsonValue;
 /**
  *
  * @author xiaolie
  */
 public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
-    private DBObject query = new BasicDBObject();
-    private DBObject currentObj;
+    private BsonDocument query = new BsonDocument();
+    private BsonDocument currentObj;
 //    private String currentColumn;
 
     public Sql2MongoExpressVisitor() {
     }
 
-    public DBObject getQuery() {
+    public BsonDocument getQuery() {
         return query;
     }
 
-    public void setQuery(DBObject query) {
+    public void setQuery(BsonDocument query) {
         this.query = query;
     }
     
@@ -48,9 +57,9 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         if (right instanceof Column) {
             String rightV = ((Column) right).getColumnName();
             if (rightV.equalsIgnoreCase("true")) {
-                query.put(left.toString(), Boolean.TRUE);
+                query.put(left.toString(), BsonBoolean.TRUE);
             } else if (rightV.equalsIgnoreCase("false")) {
-                query.put(left.toString(), Boolean.FALSE);
+                query.put(left.toString(), BsonBoolean.FALSE);
             } else {
                 throw new RuntimeException("不能识别的表达式：" + right.toString());
             }
@@ -59,7 +68,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
                 Method getValueMethod = right.getClass().getMethod("getValue");
                 if (getValueMethod != null) {
                     Object value = getValueMethod.invoke(right);
-                    query.put(left.toString(), value);
+                    query.put(left.toString(), toBsonValue(value));
                 }
             } catch (Exception e) {
                 throw new RuntimeException("表达式值没有value", e);
@@ -73,29 +82,23 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
             if (getValueMethod != null) {
                 Object value = getValueMethod.invoke(right);
                 String field = left.toString();
-                if (query.containsField(field)) {
-                    ((DBObject)query.get(field)).put(opt, value);
-                } else {
-                    DBObject optObj = new BasicDBObject(opt, value);
-                    query.put(field, optObj);
-                }
+                DBObject optObj = new BasicDBObject(opt, value);
+                query.put(field, toBsonValue(optObj));
             } else {
                 String field = left.toString();
-                if (query.containsField(field)) {
-                    ((DBObject)query.get(field)).put(opt, right);
-                } else {
-                    DBObject optObj = new BasicDBObject(opt, right);
-                    query.put(field, optObj);
-                }
+                DBObject optObj = new BasicDBObject(opt, right);
+                query.put(field, toBsonValue(optObj));
             }
         } catch (Exception e) {
+            e.printStackTrace();
+            /*
             String field = left.toString();
-            if (query.containsField(field)) {
+            if (query.containsKey(field)) {
                 ((DBObject)query.get(field)).put(opt, right);
             } else {
                 DBObject optObj = new BasicDBObject(opt, right);
-                query.put(field, optObj);
-            }
+                query.put(field, toBsonValue(optObj));
+            } */
             //throw new RuntimeException("表达式值没有value", e);
         }
     }
@@ -171,6 +174,24 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
                 items[i] = item;
             }
         }
+    }
+    
+    private BsonValue toBsonValue(Object value) {
+        BsonValue bv = null;
+        if (value instanceof Integer) {
+            bv = new BsonInt32((Integer) value);
+        } else if (value instanceof Long) {
+            bv = new BsonInt64((Long) value);
+        } else if (value instanceof Date) {
+            bv = new BsonDateTime(((Date) value).getTime());
+        } else if (value instanceof Double) {
+            bv = new BsonDouble((Double) value);
+        } else if (value instanceof Boolean) {
+            bv = new BsonBoolean((Boolean) value);
+        } else {
+            bv = new BsonString(value.toString());
+        }
+        return bv;
     }
 
 }
