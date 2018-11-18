@@ -260,7 +260,11 @@ public class MongoDbOperater {
         MongoDatabase db = mongoClient.getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
-        return (T)coll.find( query, clazz).first();
+        Document one = (Document)coll.find(query).first();
+        T bean = clazz.newInstance();
+        BeanUtils.populate(bean, one);
+        return bean;
+        //return (T)coll.find( query, clazz).first();
     }
 
     public <T> T findOneObj(String dbname, String collName, Bson queryMap, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
