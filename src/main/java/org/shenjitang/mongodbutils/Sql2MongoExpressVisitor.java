@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
 import java.util.Date;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+import net.sf.jsqlparser.expression.JdbcParameter;
 import net.sf.jsqlparser.expression.NotExpression;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
@@ -41,9 +42,10 @@ import org.bson.conversions.Bson;
  */
 public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     private Bson query = null;
-    //private Map<
+    private Object[] params;
 
-    public Sql2MongoExpressVisitor() {
+    public Sql2MongoExpressVisitor(Object... params) {
+        this.params = params;
     }
 
     public Bson getQuery() {
@@ -152,7 +154,10 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     
     private BsonValue toBsonValue(Object value) {
         BsonValue bv = null;
-        if (value instanceof Expression) {
+        if (value instanceof JdbcParameter) {
+            JdbcParameter pv = (JdbcParameter)value;
+            value = params[pv.getIndex() - 1];
+        } else if (value instanceof Expression) {
             try {
                 Method getValueMethod = value.getClass().getMethod("getValue");
                 value = getValueMethod.invoke(value);

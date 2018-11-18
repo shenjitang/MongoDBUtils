@@ -154,6 +154,11 @@ public class MongoDbOperater {
         return find(query);
     }
 
+    public List find(String dbName, String sql, Object... params) throws JSQLParserException {
+        QueryInfo query = sql2QueryInfo(dbName, sql, params);
+        return find(query);
+    }
+
     public Document findOne(String dbName, String sql) throws JSQLParserException {
         QueryInfo query = sql2QueryInfo(dbName, sql);
         return findOne(query);
@@ -348,7 +353,7 @@ public class MongoDbOperater {
     public static Pattern dateP = Pattern.compile("^[12][09][0-9][0-9]\\-[0-9][0-9]\\-[0-9][0-9]$");
     public static Pattern timeP = Pattern.compile("^[12][09][0-9][0-9]\\-[0-9][0-9]\\-[0-9][0-9]\\s[0-9][0-9]\\:[0-9][0-9]\\:[0-9][0-9]$");
 
-    public QueryInfo sql2QueryInfo(String dbName, String sql) throws JSQLParserException {
+    public QueryInfo sql2QueryInfo(String dbName, String sql, Object... params) throws JSQLParserException {
         QueryInfo queryInfo = new QueryInfo();
         queryInfo.dbName = dbName;
         CCJSqlParserManager parserManager = new CCJSqlParserManager();
@@ -438,7 +443,7 @@ public class MongoDbOperater {
             throw new JSQLParserException("不支持的sql语句:" + sql);
         }
         if (whereExpression != null) {
-            Sql2MongoExpressVisitor visitor = new Sql2MongoExpressVisitor();
+            Sql2MongoExpressVisitor visitor = new Sql2MongoExpressVisitor(params);
             whereExpression.accept(visitor);
             queryInfo.query = visitor.getQuery();
         }
@@ -541,7 +546,7 @@ public class MongoDbOperater {
     public static void main(String[] args) throws Exception {
         String dbname = "test";
         String collname = "collection1";
-        MongoDbOperater operater = new MongoDbOperater("mongodb://xl:最常用@shenjimongo-shard-00-00-duqjb.mongodb.net:27017,shenjimongo-shard-00-01-duqjb.mongodb.net:27017,shenjimongo-shard-00-02-duqjb.mongodb.net:27017/test?ssl=true&replicaSet=ShenjiMongo-shard-0&authSource=admin&retryWrites=true");
+        MongoDbOperater operater = new MongoDbOperater("mongodb://xl:xlhanfu123@shenjimongo-shard-00-00-duqjb.mongodb.net:27017,shenjimongo-shard-00-01-duqjb.mongodb.net:27017,shenjimongo-shard-00-02-duqjb.mongodb.net:27017/test?ssl=true&replicaSet=ShenjiMongo-shard-0&authSource=admin&retryWrites=true");
         /*
         operater.remove("test", "delete from collection1 where anme='秦小'");
         Map record = new HashMap();
@@ -557,9 +562,9 @@ public class MongoDbOperater {
         print(operater.get(dbname, collname, "5b87779262e5f57e8f08dd35"));
         //String sql = "select * from collection1 where name='秦小' and age between 15 and 17 limit 3";
         //String sql = "select * from collection1 where age between 15 and 17 and name='张三' limit 2";
-        String sql = "select * from collection1 where age > 15 and age < 20 and (name='张三' or name='大卫') limit 2";
-        //String sql = "select * from collection1 where name='张三' or name='秦小' limit 2";
-        list = operater.find(dbname, sql);
+        //String sql = "select * from collection1 where age > 15 and age < 20 and (name='张三' or name='大卫') limit 2";
+        String sql = "select * from collection1 where age > ? and age< ?";
+        list = operater.find(dbname, sql, 17, 25);
         System.out.println("===");
         print(list);
     }
