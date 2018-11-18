@@ -541,23 +541,24 @@ public class MongoDbOperater {
     public static void main(String[] args) throws Exception {
         String dbname = "test";
         String collname = "collection1";
-        MongoDbOperater operater = new MongoDbOperater("mongodb://xl:xlhanfu123@shenjimongo-shard-00-00-duqjb.mongodb.net:27017,shenjimongo-shard-00-01-duqjb.mongodb.net:27017,shenjimongo-shard-00-02-duqjb.mongodb.net:27017/test?ssl=true&replicaSet=ShenjiMongo-shard-0&authSource=admin&retryWrites=true");
-        //MongoDbOperater operater = new MongoDbOperater("mongodb+srv://admin:xlhanfu123@shenjimongo-duqjb.mongodb.net/test?retryWrites=true");
+        MongoDbOperater operater = new MongoDbOperater("mongodb://xl:最常用@shenjimongo-shard-00-00-duqjb.mongodb.net:27017,shenjimongo-shard-00-01-duqjb.mongodb.net:27017,shenjimongo-shard-00-02-duqjb.mongodb.net:27017/test?ssl=true&replicaSet=ShenjiMongo-shard-0&authSource=admin&retryWrites=true");
         /*
         operater.remove("test", "delete from collection1 where anme='秦小'");
         Map record = new HashMap();
-        record.put("name", "秦小");
-        record.put("age", 18);
+        record.put("name", "大卫");
+        record.put("age", 22);
         operater.insert("test", "collection1", record);
         */
         List<Document> list = operater.findAll(dbname, collname);
         print(list);
-        Document map = operater.findOne(dbname, "select * from collection1 where name='秦小'");
-        print(map);
+        //Document map = operater.findOne(dbname, "select * from collection1 where name='秦小'");
+        //print(map);
         System.out.println("=");
         print(operater.get(dbname, collname, "5b87779262e5f57e8f08dd35"));
         //String sql = "select * from collection1 where name='秦小' and age between 15 and 17 limit 3";
-        String sql = "select * from collection1 where age between 15 and 17 and name='张三' limit 2";
+        //String sql = "select * from collection1 where age between 15 and 17 and name='张三' limit 2";
+        String sql = "select * from collection1 where age > 15 and age < 20 and (name='张三' or name='大卫') limit 2";
+        //String sql = "select * from collection1 where name='张三' or name='秦小' limit 2";
         list = operater.find(dbname, sql);
         System.out.println("===");
         print(list);

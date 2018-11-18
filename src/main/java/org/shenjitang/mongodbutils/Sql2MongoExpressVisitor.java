@@ -41,8 +41,7 @@ import org.bson.conversions.Bson;
  */
 public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     private Bson query = null;
-    private BsonDocument currentObj;
-//    private String currentColumn;
+    //private Map<
 
     public Sql2MongoExpressVisitor() {
     }
@@ -51,24 +50,40 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         return query;
     }
 
-    public void setQuery(BsonDocument query) {
+    public void setQuery(Bson query) {
         this.query = query;
     }
     
-    private void addQuery(Bson expreBson) {
-        if (query == null) {
-            query = expreBson;
-        } else {
-            query = Filters.and(query, expreBson);
-        }
-    }
-
     @Override
     public void visit(EqualsTo expr) {  
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        addQuery(Filters.eq(left.toString(), toBsonValue(right))); 
+        setQuery(Filters.eq(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(expr);
+    }
+
+    @Override
+    public void visit(OrExpression expr) {
+        //super.visit(expr); //To change body of generated methods, choose Tools | Templates.
+        Expression left = expr.getLeftExpression();
+        Expression right = expr.getRightExpression();
+        left.accept(this);
+        Bson leftFiter = query;
+        right.accept(this);
+        Bson rightFilter = query;
+        query = Filters.or(leftFiter, rightFilter);
+    }
+
+    @Override
+    public void visit(AndExpression expr) {
+        //super.visit(expr); //To change body of generated methods, choose Tools | Templates.
+        Expression left = expr.getLeftExpression();
+        Expression right = expr.getRightExpression();
+        left.accept(this);
+        Bson leftFiter = query;
+        right.accept(this);
+        Bson rightFilter = query;
+        query = Filters.and(leftFiter, rightFilter);
     }
     
 
@@ -76,7 +91,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void visit(GreaterThan expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        addQuery(Filters.gt(left.toString(), toBsonValue(right)));        
+        setQuery(Filters.gt(left.toString(), toBsonValue(right)));        
         visitBinaryExpression(expr);
     }
 
@@ -85,15 +100,15 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         Expression left = expr.getLeftExpression();
         Expression start = expr.getBetweenExpressionStart();
         Expression end = expr.getBetweenExpressionEnd();
-        addQuery(Filters.gte(left.toString(), toBsonValue(start)));
-        addQuery(Filters.lte(left.toString(), toBsonValue(end)));
+        setQuery(Filters.gte(left.toString(), toBsonValue(start)));
+        setQuery(Filters.lte(left.toString(), toBsonValue(end)));
     }
     
     @Override
     public void visit(GreaterThanEquals greaterThanEquals) {
         Expression left = greaterThanEquals.getLeftExpression();
         Expression right = greaterThanEquals.getRightExpression();
-        addQuery(Filters.gte(left.toString(), toBsonValue(right))); 
+        setQuery(Filters.gte(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(greaterThanEquals);
     }
 
@@ -101,7 +116,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void visit(MinorThan expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        addQuery(Filters.lt(left.toString(), toBsonValue(right))); 
+        setQuery(Filters.lt(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(expr);
     }
     
@@ -109,7 +124,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void visit(MinorThanEquals expr) {
         Expression left = expr.getLeftExpression();
         Expression right = expr.getRightExpression();
-        addQuery(Filters.lte(left.toString(), toBsonValue(right))); 
+        setQuery(Filters.lte(left.toString(), toBsonValue(right))); 
         visitBinaryExpression(expr);
     }
     
@@ -121,7 +136,7 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
         String str = listStr.substring(listStr.indexOf("(") + 1, listStr.lastIndexOf(")"));
         String[] items = str.split(",");
         trimQuotation(items);
-        addQuery(Filters.in(left.toString(), items));
+        setQuery(Filters.in(left.toString(), items));
     }
 
     private void trimQuotation(String[] items) {
