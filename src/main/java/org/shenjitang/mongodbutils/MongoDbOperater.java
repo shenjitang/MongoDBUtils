@@ -7,6 +7,8 @@
 package org.shenjitang.mongodbutils;
 
 import com.mongodb.Block;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.annotations.Immutable;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -17,6 +19,7 @@ import com.mongodb.client.gridfs.GridFSBucket;
 import com.mongodb.client.gridfs.GridFSBuckets;
 import com.mongodb.client.gridfs.model.GridFSFile;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.UpdateResult;
 import java.io.ByteArrayInputStream;
 import org.shenjitang.beanutils.BeanUtilEx;
 
@@ -28,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -47,8 +51,12 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.update.Update;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.beanutils.ConvertUtils;
+import org.apache.commons.beanutils.converters.BigDecimalConverter;
 import org.apache.commons.beanutils.converters.DateConverter;
+import org.apache.commons.beanutils.converters.DoubleConverter;
 import org.apache.commons.beanutils.converters.IntegerConverter;
+import org.apache.commons.beanutils.converters.LongConverter;
+import org.apache.commons.beanutils.converters.ShortConverter;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.time.DateUtils;
@@ -59,6 +67,9 @@ import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.bson.Document;
+import static org.bson.codecs.configuration.CodecRegistries.*;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.codecs.pojo.PojoCodecProvider;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 
@@ -66,11 +77,21 @@ import org.bson.types.ObjectId;
  * @author xiaolie
  */
 public class MongoDbOperater {
-
+    static {
+        ConvertUtils.register(new LongConverter(null), Long.class);
+        ConvertUtils.register(new ShortConverter(null), Short.class);
+        ConvertUtils.register(new IntegerConverter(null), Integer.class);
+        ConvertUtils.register(new DoubleConverter(null), Double.class);
+        ConvertUtils.register(new BigDecimalConverter(null), BigDecimal.class);
+        ConvertUtils.register(new DateConverter(null), Date.class);
+    }
+    CodecRegistry pojoCodecRegistry;
     public MongoDbOperater() {
     }
-    
+
     public MongoDbOperater(String address) {
+        pojoCodecRegistry = fromRegistries(MongoClientSettings.getDefaultCodecRegistry(),
+                fromProviders(PojoCodecProvider.builder().automatic(true).build()));
         mongoClient = MongoClients.create(address);
     }
 
@@ -83,45 +104,74 @@ public class MongoDbOperater {
     }
 
     private MongoClient mongoClient;
+    
+    private MongoDatabase getDatabase(String dbName) {
+        return mongoClient.getDatabase(dbName).withCodecRegistry(pojoCodecRegistry);
+    }
 
     public void insert(String dbName, String colName, Map map) {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         Document doc = new Document(map);
         coll.insertOne(doc);
     }
 
     public void insert(String dbName, String colName, Object obj) throws Exception {
-        insert(dbName, colName, BeanUtilEx.transBean2Map(obj));
+        MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName, obj.getClass());
+        coll.insertOne(obj);
+        //insert(dbName, colName, BeanUtilEx.transBean2Map(obj));
     }
 
     public void insert(String dbName, String colName, String json) {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         BsonDocument doc = BsonDocument.parse(json);
         coll.insertOne(doc);
     }
 
-    public void update(String dbName, String colName, Map findMap, Map recordMap) throws Exception {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+    public void update(String dbName, String colName, Map findMap, Document recordMap) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         coll.updateMany(map2Bson(findMap), new Document("$set", new Document(recordMap)));
     }
 
-    public void update(String dbName, String colName, Bson findMap, Map recordMap) throws Exception {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+    public void update(String dbName, String colName, Bson findMap, Document recordMap) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
-        coll.updateMany(findMap, new Document("$set", new Document(recordMap)));
+        UpdateResult result = coll.updateMany(findMap, new Document("$set", new Document(recordMap)));
+        System.out.println(result.toString());
+    }
+
+    public void update(String dbName, String colName, Bson findMap, Map recordMap) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName);
+        UpdateResult result = coll.updateMany(findMap, new Document("$set", map2Document(recordMap)));
+        System.out.println(result.toString());
+    }
+
+    public void updateOne(String dbName, String colName, Bson findMap, Map recordMap) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName);
+        UpdateResult result = coll.updateOne(findMap, new Document("$set", map2Document(recordMap)));
+        System.out.println(result.toString());
+    }
+
+    public void update(String dbName, String colName, Map findMap, Map recordMap) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName);
+        UpdateResult result = coll.updateMany(map2Bson(findMap), new Document("$set", map2Document(recordMap)));
+        System.out.println(result.toString());
     }
 
     public void update(String dbName, String colName, Bson findMap, Object obj) throws Exception {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         coll.updateMany(findMap, new Document("$set", new Document(BeanUtilEx.transBean2Map(obj))));
     }
 
     public void update(String dbName, String colName, String findJson, String json) {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         coll.updateMany(BsonDocument.parse(findJson), new Document("$set", BsonDocument.parse(json)));
     }
@@ -138,13 +188,13 @@ public class MongoDbOperater {
 
     public void remove(String dbName, String sql) throws JSQLParserException {
         QueryInfo query = sql2QueryInfo(dbName, sql);
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(query.collName);
         coll.deleteMany(query.query);
     }
 
     public void remove(String dbName, String colName, Map query) {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         coll.deleteMany(new Document(query));
     }
@@ -165,7 +215,7 @@ public class MongoDbOperater {
     }
     
     public Document get(String dbName, String collName, String hexId) {
-        MongoDatabase db = mongoClient.getDatabase(dbName);
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(collName);
         ObjectId id = new ObjectId(hexId);
         return (Document)coll.find(Filters.eq("_id", id)).first();
@@ -184,14 +234,14 @@ public class MongoDbOperater {
     }
 
     public Document findOne(QueryInfo queryInfo) {
-        MongoDatabase db = mongoClient.getDatabase(queryInfo.dbName);
+        MongoDatabase db = getDatabase(queryInfo.dbName);
         MongoCollection coll = db.getCollection(queryInfo.collName);
         Document cur = (Document)coll.find(queryInfo.query).first();
         return cur;
     }
 
     public List<Document> find(QueryInfo queryInfo) {
-        MongoDatabase db = mongoClient.getDatabase(queryInfo.dbName);
+        MongoDatabase db = getDatabase(queryInfo.dbName);
         MongoCollection coll = db.getCollection(queryInfo.collName);
         FindIterable cursor = null;
         if (queryInfo.query != null) {
@@ -212,14 +262,14 @@ public class MongoDbOperater {
     }
 
     public List find(String dbname, String collName, Map queryMap, int start, int limit) {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
         return find(coll, query, start, limit);
     }
 
     public List find(String dbname, String collName, Map queryMap, Map orderMap, int start, int limit) {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
         Document order = new Document(orderMap);
@@ -227,20 +277,20 @@ public class MongoDbOperater {
     }
     
     public List find(String dbname, String collName, Map queryMap) {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
         return find(coll, query);
     }
 
     public List<Document> findAll(String dbname, String collName) {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         return find(coll, null);
     }
 
     public long count(String dbname, String collName, Map queryMap) {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         long count;
         if (queryMap == null) {
@@ -257,24 +307,24 @@ public class MongoDbOperater {
     }
 
     public <T> T findOneObj(String dbname, String collName, Map queryMap, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
-        Document one = (Document)coll.find(query).first();
-        T bean = clazz.newInstance();
-        BeanUtils.populate(bean, one);
-        return bean;
-        //return (T)coll.find( query, clazz).first();
+        //Document one = (Document)coll.find(query).first();
+        //T bean = clazz.newInstance();
+        //BeanUtils.populate(bean, one);
+        //return bean;
+        return (T)coll.find( query, clazz).first();
     }
 
     public <T> T findOneObj(String dbname, String collName, Bson queryMap, Class<T> clazz) throws InstantiationException, IllegalAccessException, InvocationTargetException {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         return (T)coll.find(queryMap, clazz).first();
     }
 
     public Map findOne(String dbname, String collName, Map queryMap) throws InstantiationException, IllegalAccessException, InvocationTargetException {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
         Document query = new Document(queryMap);
         return (Map)coll.find( query, Map.class).first();
@@ -496,7 +546,7 @@ public class MongoDbOperater {
      * @throws IOException
      */
     public ObjectId upload2GridFS(String dbname, InputStream input, String fsFileName) throws FileNotFoundException, IOException {
-        MongoDatabase db = mongoClient.getDatabase(dbname);
+        MongoDatabase db = getDatabase(dbname);
         GridFSBucket bucket = GridFSBuckets.create(db);
         ObjectId fileId = bucket.uploadFromStream(fsFileName, input);
         return fileId;
@@ -525,7 +575,7 @@ public class MongoDbOperater {
     public File downloadFsFile(String dbname, String fsFileName, String fileName) throws FileNotFoundException, IOException {
         File outFile = new File(fileName);
         FileOutputStream out = new FileOutputStream(outFile);
-        GridFSBucket bucket = GridFSBuckets.create(mongoClient.getDatabase(dbname));
+        GridFSBucket bucket = GridFSBuckets.create(getDatabase(dbname));
         bucket.downloadToStream(fsFileName, out);
         return outFile;
     }
@@ -538,7 +588,7 @@ public class MongoDbOperater {
      * @param queryMap GridFS文件的检索条件
      */
     public void removeFsFile(String dbname, String fileName, Map queryMap) {
-        GridFSBucket bucket = GridFSBuckets.create(mongoClient.getDatabase(dbname));
+        GridFSBucket bucket = GridFSBuckets.create(getDatabase(dbname));
         MongoCursor<GridFSFile> cursor = bucket.find(Filters.eq("filename", fileName)).iterator();
         while(cursor.hasNext()) {
             GridFSFile fileInfo = cursor.next();
@@ -570,7 +620,27 @@ public class MongoDbOperater {
         String sql = "select * from collection1 where age > ? and age< ?";
         list = operater.find(dbname, sql, 17, 25);
         System.out.println("===");
+        Map updateMap = new HashMap();
+        updateMap.put("age", "43");
+        operater.update(dbname, collname, Filters.eq("name", "大卫"), updateMap);
         print(list);
+        
+        updateMap = new HashMap();
+        updateMap.put("md5", "00000000-0040-0000-0000-200000000042");
+        Map map = new HashMap();
+        map.put("content", "呀啊呀呀呀，呸呀呸呸呸");
+        map.put("secretKey", "88777777");
+        map.put("encrypt", Boolean.TRUE);
+        map.put("deepLimit", Integer.valueOf(3));
+        operater.update("quantum", "chat_item", Filters.eq("id", "00000000-0000-0000-0000-000000000002"), map);
+        /*
+        MongoDatabase db = operater.getMongoClient().getDatabase("quantum");
+        MongoCollection coll = db.getCollection("chat_item");
+        Document recordMap = new Document();
+        recordMap.put("md5", "00000000-0000-0000-0000-200000000002");
+        UpdateResult result = coll.updateMany(Filters.eq("id", "00000000-0000-0000-0000-000000000002"), new Document("$set", recordMap));
+        System.out.println(result.toString());
+*/
     }
     
     private static void print(Document rec) {
@@ -594,6 +664,14 @@ public class MongoDbOperater {
             }
         }
         return result;
+    }
+
+    private Document map2Document(Map recordMap) {
+        Document doc = new Document();
+        for (Object key : recordMap.keySet()) {
+            doc.append((String)key, recordMap.get(key));
+        }
+        return doc;
     }
 
 
