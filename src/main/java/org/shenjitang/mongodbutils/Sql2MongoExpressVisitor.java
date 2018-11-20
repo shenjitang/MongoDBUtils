@@ -27,6 +27,7 @@ import net.sf.jsqlparser.expression.operators.relational.ItemsList;
 import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import org.bson.BsonBoolean;
 import org.bson.BsonDateTime;
 import org.bson.BsonDocument;
@@ -55,6 +56,27 @@ public class Sql2MongoExpressVisitor extends ExpressionVisitorAdapter {
     public void setQuery(Bson query) {
         this.query = query;
     }
+
+    @Override
+    public void visit(NotEqualsTo expr) {
+        Expression left = expr.getLeftExpression();
+        Expression right = expr.getRightExpression();
+        setQuery(Filters.ne(left.toString(), toBsonValue(right))); 
+        visitBinaryExpression(expr);
+    }
+
+    @Override
+    public void visit(IsNullExpression expr) {
+        Expression left = expr.getLeftExpression();
+        if (expr.isNot()) {
+            setQuery(Filters.exists(left.toString(), true));
+        } else {
+            //setQuery(Filters.or(Filters.exists(left.toString(), true), Filters.eq(left.toString(), null)));
+            setQuery(Filters.exists(left.toString(), false));
+        }
+    }
+    
+    
     
     @Override
     public void visit(EqualsTo expr) {  

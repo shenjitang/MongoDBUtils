@@ -139,7 +139,7 @@ public class MongoDbOperater {
     public void update(String dbName, String colName, Bson findMap, Document recordMap) throws Exception {
         MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
-        UpdateResult result = coll.updateMany(findMap, new Document("$set", new Document(recordMap)));
+        UpdateResult result = coll.updateMany(findMap, new Document("$set", recordMap));
         System.out.println(result.toString());
     }
 
@@ -183,7 +183,7 @@ public class MongoDbOperater {
 
     public void update(String dbName, String sql) throws Exception {
         QueryInfo query = sql2QueryInfo(dbName, sql);
-        update(dbName, query.collName, query.query, new Document("$set", query.updateObj));
+        update(dbName, query.collName, query.query, query.updateObj);
     }
 
     public void remove(String dbName, String sql) throws JSQLParserException {
@@ -203,10 +203,27 @@ public class MongoDbOperater {
         QueryInfo query = sql2QueryInfo(dbName, sql);
         return find(query);
     }
+    
+    public List find(Class clazz, String dbName, String sql) throws JSQLParserException {
+        QueryInfo query = sql2QueryInfo(dbName, sql);
+        return find(clazz, query);
+    }
 
     public List find(String dbName, String sql, Object... params) throws JSQLParserException {
         QueryInfo query = sql2QueryInfo(dbName, sql, params);
         return find(query);
+    }
+
+    public List find(Class clazz, String dbName, String sql, Object... params) throws JSQLParserException {
+        QueryInfo query = sql2QueryInfo(dbName, sql, params);
+        return find(clazz, query);
+    }
+    
+    public List find2(Class clazz, String dbName, String collName, String field, Object value) {
+        MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(collName);
+        FindIterable cur = coll.find(Filters.eq(field, value), clazz);
+        return cursor2list(cur);
     }
 
     public Document findOne(String dbName, String sql) throws JSQLParserException {
@@ -260,7 +277,28 @@ public class MongoDbOperater {
         }
         return cursor2list(cursor);
     }
-
+    
+    public List find(Class clazz, QueryInfo queryInfo) {
+        MongoDatabase db = getDatabase(queryInfo.dbName);
+        MongoCollection coll = db.getCollection(queryInfo.collName);
+        FindIterable cursor = null;
+        if (queryInfo.query != null) {
+            cursor = coll.find(queryInfo.query, clazz);
+        } else {
+            cursor = coll.find(clazz);
+        }
+        if (queryInfo.order != null) {
+            cursor = cursor.sort(queryInfo.order);
+        }
+        if (queryInfo.limit != null) {
+            cursor.limit(queryInfo.limit.intValue());
+        }
+        if (queryInfo.skip != null) {
+            cursor.skip(queryInfo.skip.intValue());
+        }
+        return cursor2list(cursor);
+    }
+    
     public List find(String dbname, String collName, Map queryMap, int start, int limit) {
         MongoDatabase db = getDatabase(dbname);
         MongoCollection coll = db.getCollection(collName);
@@ -300,6 +338,12 @@ public class MongoDbOperater {
             count = coll.count(query);
         }
         return count;
+    }
+    
+    public long count(String dbname, String collName, String field, Object value) {
+        MongoDatabase db = getDatabase(dbname);
+        MongoCollection coll = db.getCollection(collName);
+        return coll.countDocuments(Filters.eq(field, value));
     }
 
     public long count(String dbname, String collName) {
@@ -393,12 +437,12 @@ public class MongoDbOperater {
     */
 
 
-    private List<Document> cursor2list(FindIterable cursor) {
-        final List<Document> list = new ArrayList();
+    private List cursor2list(FindIterable cursor) {
+        final List list = new ArrayList();
         cursor.forEach(new Block() {
             @Override
             public void apply(Object t) {
-                list.add((Document)t);
+                list.add(t);
             }
         });
         return list;
