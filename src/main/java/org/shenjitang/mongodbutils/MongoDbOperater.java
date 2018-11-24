@@ -170,11 +170,19 @@ public class MongoDbOperater {
 
     public UpdateResult updateByBean(String dbName, String colName, Bson findMap, Object obj) throws Exception {
         MongoDatabase db = getDatabase(dbName);
+        MongoCollection coll = db.getCollection(colName, obj.getClass());
+        UpdateResult result = coll.updateMany(findMap, new Document("$set", obj));
+        logger.debug(result.toString());
+        return result;
+    }
+    /*
+    public UpdateResult updateByBean(String dbName, String colName, Bson findMap, Object obj) throws Exception {
+        MongoDatabase db = getDatabase(dbName);
         MongoCollection coll = db.getCollection(colName);
         UpdateResult result = coll.updateMany(findMap, new Document("$set", map2Document(BeanUtilEx.transBean2Map(obj))));
         logger.debug(result.toString());
         return result;
-    }
+    }*/
     public UpdateResult update(String dbName, String colName, Map findMap, Map recordMap) throws Exception {
         return update(dbName, colName, map2Bson(findMap), map2Document(recordMap));
     }
