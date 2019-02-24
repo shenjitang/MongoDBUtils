@@ -109,7 +109,7 @@ public class MongoDbOperater {
 
     private MongoClient mongoClient;
     
-    private MongoDatabase getDatabase(String dbName) {
+    public MongoDatabase getDatabase(String dbName) {
         return mongoClient.getDatabase(dbName).withCodecRegistry(pojoCodecRegistry);
     }
 
